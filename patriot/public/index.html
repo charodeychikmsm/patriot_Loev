@@ -1,0 +1,1235 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Лоев: Путешествие во времени</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; user-select:none;
+    font-family:'Segoe UI', Tahoma, sans-serif; }
+
+body { background:#0a0a0a; display:flex; justify-content:center;
+       align-items:center; min-height:100vh; overflow:hidden; }
+
+#game {
+    width:1000px; height:650px; background:#000;
+    border-radius:15px; box-shadow:0 30px 80px rgba(0,0,0,0.95);
+    position:relative; overflow:hidden; border:4px solid #1a1a1a;
+}
+
+.screen { position:absolute; top:0; left:0; width:100%; height:100%; display:none; }
+.screen.active { display:block; }
+
+/* === МЕНЮ === */
+#menu {
+    background: radial-gradient(circle at center, #1a2a4a 0%, #0a0a15 100%);
+    display:none; flex-direction:column; align-items:center; justify-content:center;
+}
+#menu.active { display:flex; }
+#menu h1 {
+    font-size:64px; color:#e94560;
+    text-shadow:0 0 40px rgba(233,69,96,0.8), 0 5px 15px rgba(0,0,0,0.8);
+    letter-spacing:12px; margin-bottom:5px;
+}
+#menu .subtitle {
+    color:#a8a8b3; font-size:16px; letter-spacing:6px; margin-bottom:40px;
+}
+.puzzle-preview {
+    width:150px; height:150px;
+    border:4px solid #e94560; border-radius:15px;
+    display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr;
+    gap:5px; padding:8px; margin-bottom:40px;
+    background:rgba(0,0,0,0.5); box-shadow:0 0 30px rgba(233,69,96,0.4);
+}
+.puzzle-preview .pp-piece {
+    background:rgba(255,255,255,0.05); border-radius:6px;
+    border:2px dashed rgba(233,69,96,0.4); transition:all 0.5s;
+}
+.puzzle-preview .pp-piece.on {
+    background:linear-gradient(135deg, #e94560, #ff8a5c);
+    border:2px solid #ff8a5c; box-shadow:0 0 15px rgba(233,69,96,0.9);
+}
+.btn {
+    padding:16px 60px; font-size:22px; font-weight:bold;
+    color:#fff; background:linear-gradient(135deg, #e94560, #b02a4a);
+    border:none; border-radius:50px; cursor:pointer;
+    letter-spacing:3px; text-transform:uppercase;
+    box-shadow:0 10px 30px rgba(233,69,96,0.6); transition:all 0.2s;
+}
+.btn:hover { transform:translateY(-3px) scale(1.03);
+             box-shadow:0 15px 40px rgba(233,69,96,0.8); }
+.btn:active { transform:translateY(0) scale(0.98); }
+
+/* === КОМНАТА === */
+#room { background:#1a1a1a; }
+.room-wall {
+    position:absolute; top:0; left:0; width:100%; height:65%;
+    background:repeating-linear-gradient(90deg,
+        #4a3a3a, #4a3a3a 20px, #423232 20px, #423232 40px);
+    box-shadow:inset 0 -50px 50px rgba(0,0,0,0.5);
+}
+.room-floor {
+    position:absolute; bottom:0; left:0; width:100%; height:35%;
+    background:linear-gradient(to bottom, #5a3e2b, #2e1a0e);
+    box-shadow:inset 0 50px 50px rgba(0,0,0,0.8);
+}
+.obj {
+    position:absolute; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+    font-size:60px; filter:drop-shadow(0 15px 15px rgba(0,0,0,0.8));
+    transition:transform 0.2s, filter 0.2s;
+}
+.obj:hover {
+    transform:scale(1.1) translateY(-8px);
+    filter:drop-shadow(0 20px 20px rgba(0,0,0,0.9)) brightness(1.4);
+}
+.obj.done { opacity:0.15; pointer-events:none; filter:grayscale(1); }
+#obj-window {
+    top:15%; left:10%; width:180px; height:160px;
+    background:linear-gradient(to bottom, #1a3a5c, #0d1f33);
+    border:12px solid #6d4c2a; border-radius:4px;
+    box-shadow:inset 0 0 40px rgba(0,0,0,0.9), 0 15px 25px rgba(0,0,0,0.6);
+}
+#obj-painting {
+    top:12%; right:15%; width:150px; height:120px;
+    background:linear-gradient(135deg, #d4a373, #a67c52);
+    border:14px solid #5a3e2b;
+    box-shadow:0 15px 25px rgba(0,0,0,0.6);
+}
+#obj-flag {
+    top:8%; left:45%; width:120px; height:80px;
+    background:linear-gradient(to bottom,
+        #d32f2f 0%, #d32f2f 65%, #388e3c 65%, #388e3c 100%);
+    border:3px solid #fff;
+    box-shadow:0 10px 20px rgba(0,0,0,0.6);
+}
+#obj-table {
+    bottom:25%; left:25%; width:260px; height:100px;
+    background:linear-gradient(to bottom, #6d4c2a, #4a2e1b);
+    border-radius:6px 6px 0 0;
+    box-shadow:0 20px 35px rgba(0,0,0,0.8);
+}
+#obj-book {
+    bottom:55%; left:35%; font-size:50px; transform:rotate(-15deg);
+}
+#obj-door {
+    bottom:0; right:5%; width:140px; height:280px;
+    background:linear-gradient(to right, #4a2e1b, #6d4c2a);
+    border:8px solid #2e1a0e; border-radius:15px 15px 0 0;
+    font-size:70px; cursor:not-allowed; opacity:0.5; filter:grayscale(1);
+}
+#obj-door.open {
+    cursor:pointer; opacity:1; filter:grayscale(0);
+    border-color:#4CAF50; box-shadow:0 0 40px rgba(76,175,80,0.6);
+}
+.player {
+    position:absolute; bottom:12%; left:50%;
+    transform:translateX(-50%); font-size:100px; z-index:10;
+    filter:drop-shadow(0 20px 20px rgba(0,0,0,0.8));
+}
+
+/* === УЛИЦА === */
+#street {
+    background:linear-gradient(to bottom,
+        #4a90d9 0%, #87CEEB 55%, #90EE90 55%, #3a7a3a 100%);
+}
+.sun {
+    position:absolute; top:10%; right:15%;
+    width:100px; height:100px;
+    background:radial-gradient(circle, #fff9c4, #ffeb3b, #ff9800);
+    border-radius:50%; box-shadow:0 0 60px #ffeb3b, 0 0 120px #ff9800;
+}
+.cloud {
+    position:absolute; background:rgba(255,255,255,0.9); border-radius:50px;
+}
+.cloud::before, .cloud::after {
+    content:''; position:absolute;
+    background:rgba(255,255,255,0.9); border-radius:50%;
+}
+.cloud-1 { top:15%; left:20%; width:120px; height:40px; }
+.cloud-1::before { top:-25px; left:20px; width:50px; height:50px; }
+.cloud-1::after { top:-20px; left:60px; width:40px; height:40px; }
+.cloud-2 { top:25%; left:60%; width:90px; height:30px; }
+.cloud-2::before { top:-20px; left:15px; width:40px; height:40px; }
+.cloud-2::after { top:-15px; left:50px; width:30px; height:30px; }
+#street-person {
+    position:absolute; bottom:20%; left:25%; font-size:100px; cursor:pointer;
+    filter:drop-shadow(0 20px 20px rgba(0,0,0,0.6)); transition:transform 0.2s;
+}
+#street-person:hover { transform:scale(1.1) translateY(-10px); }
+#street-school {
+    position:absolute; bottom:35%; right:15%; font-size:160px; cursor:pointer;
+    filter:drop-shadow(0 20px 20px rgba(0,0,0,0.6)); transition:transform 0.2s;
+}
+#street-school:hover { transform:scale(1.1) translateY(-10px); }
+#street-person.done, #street-school.done {
+    opacity:0.15; pointer-events:none; filter:grayscale(1);
+}
+
+/* === КЛАССЫ === */
+.classroom {
+    position:absolute; top:0; left:0; width:100%; height:100%;
+    overflow:hidden;
+}
+#geo .classroom { background:linear-gradient(to bottom, #4a90d9, #2a5a8a); }
+#history .classroom { background:linear-gradient(to bottom, #a8d5a2, #6a9a6a); }
+.classroom::after {
+    content:''; position:absolute; bottom:0; left:0;
+    width:100%; height:30%;
+    background:linear-gradient(to bottom,
+        rgba(0,0,0,0.2), rgba(0,0,0,0.4));
+}
+.cabinet-number {
+    position:absolute; top:6%; left:50%; transform:translateX(-50%);
+    color:#fff; font-size:18px; letter-spacing:4px;
+    background:rgba(0,0,0,0.5); padding:8px 24px;
+    border-radius:20px; border:2px solid rgba(255,255,255,0.3);
+    text-transform:uppercase; font-weight:bold; z-index:5;
+}
+.blackboard {
+    position:absolute; top:15%; left:50%; transform:translateX(-50%);
+    width:70%; height:40%;
+    background:#1a3a2a; border:14px solid #6d4c2a;
+    border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:32px; text-align:center;
+    padding:20px 40px;
+    font-family:'Courier New', monospace;
+    box-shadow:inset 0 0 60px rgba(0,0,0,0.9), 0 20px 40px rgba(0,0,0,0.6);
+    z-index:3;
+}
+.blackboard .chalk-text {
+    color:#f0f8ff;
+    text-shadow:0 0 8px rgba(255,255,255,0.5);
+    line-height:1.4;
+}
+.teacher-desk-visual {
+    position:absolute; bottom:22%; left:8%;
+    width:180px; height:70px;
+    background:linear-gradient(to bottom, #6d4c2a, #4a2e1b);
+    border-radius:6px 6px 0 0;
+    box-shadow:0 15px 25px rgba(0,0,0,0.7);
+}
+.teacher {
+    position:absolute; bottom:32%; left:10%;
+    font-size:85px; z-index:4;
+    filter:drop-shadow(0 15px 15px rgba(0,0,0,0.6));
+}
+.desk {
+    position:absolute; bottom:8%;
+    width:90px; height:55px;
+    background:linear-gradient(to bottom, #8b5a2b, #6d4c2a);
+    border-radius:4px;
+    box-shadow:0 10px 20px rgba(0,0,0,0.6);
+}
+.desk::before {
+    content:''; position:absolute; bottom:-15px; left:10px;
+    width:10px; height:15px; background:#4a2e1b;
+    box-shadow:60px 0 0 #4a2e1b;
+}
+.desk .student-emoji {
+    position:absolute; top:-45px; left:50%;
+    transform:translateX(-50%); font-size:45px;
+    filter:drop-shadow(0 8px 8px rgba(0,0,0,0.5));
+}
+.player-board {
+    position:absolute; bottom:22%; right:12%;
+    font-size:85px; z-index:4;
+    filter:drop-shadow(0 15px 15px rgba(0,0,0,0.6));
+    display:flex; align-items:center;
+}
+.player-board .pointer {
+    font-size:50px; margin-left:-15px;
+    transform:rotate(-30deg);
+    filter:drop-shadow(0 5px 5px rgba(0,0,0,0.5));
+}
+
+/* === ДИАЛОГ === */
+#dialogue {
+    position:absolute; bottom:0; left:0; width:100%;
+    background:rgba(10,10,15,0.96);
+    border-top:5px solid #e94560;
+    padding:20px 30px;
+    display:none; flex-direction:column;
+    z-index:100; min-height:240px;
+    box-shadow:0 -15px 40px rgba(0,0,0,0.9);
+    max-height: 75%;
+    overflow-y: auto;
+}
+#dialogue.active { display:flex; }
+.dlg-header { display:flex; align-items:flex-start; margin-bottom:12px; }
+.dlg-avatar {
+    width:55px; height:55px; background:#1a1a2e;
+    border:3px solid #e94560; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-size:30px; margin-right:18px; flex-shrink:0;
+    box-shadow:0 0 20px rgba(233,69,96,0.4);
+}
+#dlg-text { color:#fff; font-size:18px; line-height:1.5; flex:1; padding-top:10px; }
+#dlg-options {
+    display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:10px;
+}
+#dlg-options .opt-btn {
+    font-size:15px; padding:12px 20px;
+    background:#1a1a2e; border:2px solid #e94560;
+    color:#fff; border-radius:8px; cursor:pointer;
+    text-align:left; transition:all 0.2s; font-family:inherit;
+}
+#dlg-options .opt-btn:hover { background:#e94560; transform:translateY(-2px); }
+#dlg-input { display:none; gap:10px; margin-top:15px; }
+#dlg-input.on { display:flex; }
+#dlg-input input {
+    flex:1; padding:12px 20px; border:2px solid #e94560;
+    border-radius:8px; background:#1a1a2e; color:#fff;
+    font-size:16px; outline:none;
+}
+#dlg-input input:focus {
+    border-color:#ff5a7a; box-shadow:0 0 15px rgba(233,69,96,0.4);
+}
+#dlg-input button {
+    padding:12px 30px; font-size:16px; border:none;
+    background:#e94560; color:#fff; border-radius:8px;
+    cursor:pointer; font-weight:bold;
+}
+#dlg-feedback {
+    margin-top:12px; font-size:16px; font-weight:bold;
+    text-align:center; min-height:22px;
+}
+.fb-ok { color:#4CAF50; text-shadow:0 0 10px rgba(76,175,80,0.6); }
+.fb-no { color:#f44336; text-shadow:0 0 10px rgba(244,67,54,0.6); }
+
+/* === ФИНАЛ === */
+#final {
+    background:radial-gradient(circle at center, #1a2a4a 0%, #0a0a15 100%);
+    display:none; flex-direction:column;
+    align-items:center; justify-content:center;
+}
+#final.active { display:flex; }
+#final h2 {
+    color:#4CAF50; font-size:32px; margin-bottom:15px;
+    text-align:center; display:none;
+    text-shadow:0 0 40px rgba(76,175,80,0.8);
+}
+#final .final-sub {
+    color:#ffeb3b; font-size:22px;
+    text-align:center; display:none; margin-bottom:25px;
+    text-shadow:0 0 20px rgba(255,235,59,0.6);
+    font-style:italic;
+}
+
+/* Контейнер пазла-флага */
+#final-puzzle {
+    position:relative;
+    width:420px;
+    height:280px;
+    border:6px solid #e94560;
+    border-radius:20px;
+    padding:10px;
+    background:rgba(0,0,0,0.5);
+    box-shadow:0 0 60px rgba(233,69,96,0.5);
+    overflow:hidden;
+}
+
+#flag-svg {
+    position:absolute;
+    top:10px; left:10px;
+    width:calc(100% - 20px);
+    height:calc(100% - 20px);
+    display:block;
+    border-radius:10px;
+}
+
+#final-puzzle .piece {
+    position:absolute;
+    width:50%;
+    height:50%;
+    background:linear-gradient(135deg, #2a2a3a, #1a1a2e);
+    border:2px solid #e94560;
+    transition:all 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    opacity:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#e94560;
+    font-size:30px;
+    font-weight:bold;
+    box-sizing:border-box;
+}
+#final-puzzle .piece.placed {
+    opacity:0;
+    transform:scale(1.3) rotate(15deg);
+    pointer-events:none;
+}
+#final-puzzle #fp0 { top:10px;    left:10px;    }
+#final-puzzle #fp1 { top:10px;    right:10px;   }
+#final-puzzle #fp2 { bottom:10px; left:10px;    }
+#final-puzzle #fp3 { bottom:10px; right:10px;   }
+
+.signature {
+    position:fixed; bottom:8px; right:15px;
+    font-size:11px; color:rgba(255,255,255,0.25);
+    font-family:monospace; z-index:9999; pointer-events:none;
+}
+
+/* === DRAG & DROP === */
+.drag-area { margin-top:15px; }
+.drag-label {
+    color:#a8a8b3; font-size:14px; margin-bottom:8px;
+    text-align:center; letter-spacing:1px;
+}
+.multi-drop {
+    min-height:70px;
+    border:3px dashed #e94560; border-radius:12px;
+    display:flex; flex-wrap:wrap; gap:8px; padding:10px;
+    background:rgba(0,0,0,0.3); transition:all 0.2s;
+    align-content:center; justify-content:center;
+    margin: 0 auto 15px;
+    max-width: 700px;
+}
+.multi-drop.over { border-color:#4CAF50; background:rgba(76,175,80,0.15); }
+.multi-drop .placeholder {
+    color:#666; font-size:14px; font-style:italic;
+    display:flex; align-items:center; justify-content:center;
+    width:100%; height:50px;
+}
+.chip {
+    padding:8px 16px;
+    background:linear-gradient(135deg, #e94560, #b02a4a);
+    border-radius:20px; color:#fff;
+    font-size:15px; font-weight:bold;
+    cursor:pointer; user-select:none;
+    transition:all 0.2s;
+    border:2px solid #ff8a5c;
+    box-shadow:0 4px 10px rgba(233,69,96,0.4);
+}
+.chip:hover {
+    transform:scale(1.05);
+    background:linear-gradient(135deg, #ff5a7a, #e94560);
+}
+.chip::after {
+    content:' ✕'; font-size:12px; opacity:0.7; margin-left:5px;
+}
+
+.drag-items {
+    display:flex; flex-wrap:wrap; gap:8px;
+    justify-content:center; margin-top:10px;
+    max-width: 850px; margin-left:auto; margin-right:auto;
+}
+.drag-item {
+    padding:10px 18px; background:#1a1a2e;
+    border:3px solid #e94560; border-radius:10px;
+    color:#fff; font-size:16px; font-weight:bold;
+    cursor:grab; user-select:none;
+    transition:all 0.2s;
+}
+.drag-item:hover { background:#e94560; transform:translateY(-2px); }
+.drag-item.taken {
+    opacity:0.2; pointer-events:none;
+}
+.drag-item:active { cursor:grabbing; }
+
+.drag-wrap { display:flex; gap:30px; justify-content:center; margin:15px 0; }
+.drop-zone {
+    width:140px; height:60px;
+    border:3px dashed #e94560; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    color:#a8a8b3; font-size:16px;
+    background:rgba(0,0,0,0.3); transition:all 0.2s;
+}
+.drop-zone.over { border-color:#4CAF50; background:rgba(76,175,80,0.2); }
+.drop-zone.filled {
+    border-style:solid; border-color:#4CAF50;
+    background:#1a1a2e; color:#fff;
+    font-size:22px; font-weight:bold;
+}
+</style>
+</head>
+<body>
+
+<div id="game">
+
+    <!-- МЕНЮ -->
+    <div id="menu" class="screen active">
+        <h1>ЛОЕВ</h1>
+        <div class="subtitle">ПУТЕШЕСТВИЕ ВО ВРЕМЕНИ</div>
+        <div class="puzzle-preview" id="pp">
+            <div class="pp-piece"></div>
+            <div class="pp-piece"></div>
+            <div class="pp-piece"></div>
+            <div class="pp-piece"></div>
+        </div>
+        <button class="btn" id="btn-play">ИГРАТЬ</button>
+    </div>
+
+    <!-- КОМНАТА -->
+    <div id="room" class="screen">
+        <div class="room-wall"></div>
+        <div class="room-floor"></div>
+        <div class="obj" id="obj-window">🪟</div>
+        <div class="obj" id="obj-painting">🖼️</div>
+        <div class="obj" id="obj-flag">🇧🇾</div>
+        <div class="obj" id="obj-table">
+            <div class="obj" id="obj-book" style="top:-40px;left:80px;">📚</div>
+        </div>
+        <div class="obj" id="obj-door">🚪</div>
+        <div class="player">🧑</div>
+    </div>
+
+    <!-- УЛИЦА -->
+    <div id="street" class="screen">
+        <div class="sun"></div>
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+        <div id="street-person">🧑‍🌾</div>
+        <div id="street-school">🏫</div>
+        <div class="player" style="bottom:5%;left:45%;">🧑</div>
+    </div>
+
+    <!-- ГЕОГРАФИЯ -->
+    <div id="geo" class="screen">
+        <div class="classroom">
+            <div class="cabinet-number">Кабинет географии №33</div>
+            <div class="blackboard">
+                <div class="chalk-text">Беларусь - у маім сэрдцы &lt;3</div>
+            </div>
+            <div class="teacher-desk-visual"></div>
+            <div class="teacher">👩‍🏫</div>
+            <div class="desk" style="left:22%;">
+                <div class="student-emoji">🧑‍🎓</div>
+            </div>
+            <div class="desk" style="left:40%;">
+                <div class="student-emoji">👩‍🎓</div>
+            </div>
+            <div class="desk" style="left:58%;">
+                <div class="student-emoji">🧑‍🎓</div>
+            </div>
+            <div class="player-board">
+                <span>🧑</span>
+                <span class="pointer">📏</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ИСТОРИЯ -->
+    <div id="history" class="screen">
+        <div class="classroom">
+            <div class="cabinet-number">Кабинет истории Беларуси №31</div>
+            <div class="blackboard">
+                <div class="chalk-text">я первобытный человек угага</div>
+            </div>
+            <div class="teacher-desk-visual"></div>
+            <div class="teacher">👩‍🏫💻</div>
+            <div class="desk" style="left:22%;">
+                <div class="student-emoji">🧑‍🎓</div>
+            </div>
+            <div class="desk" style="left:40%;">
+                <div class="student-emoji">👩‍🎓</div>
+            </div>
+            <div class="desk" style="left:58%;">
+                <div class="student-emoji">🧑‍🎓</div>
+            </div>
+            <div class="player-board">
+                <span>🧑</span>
+                <span class="pointer">📏</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ФИНАЛ -->
+    <div id="final" class="screen">
+        <h2 id="final-msg">Поздравляю! Ты ответил на все вопросы, так держать!!!</h2>
+        <div class="final-sub" id="final-sub">а мне 10 за этот проект)</div>
+        <div id="final-puzzle">
+            <svg id="flag-svg" viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                <rect x="0" y="0" width="300" height="133" fill="#5ba3d9"/>
+                <rect x="0" y="133" width="300" height="67" fill="#2e8b3e"/>
+                <g fill="#ffffff">
+                    <rect x="110" y="75" width="22" height="65"/>
+                    <polygon points="105,75 121,48 137,75"/>
+                    <rect x="168" y="75" width="22" height="65"/>
+                    <polygon points="163,75 179,48 195,75"/>
+                    <rect x="138" y="60" width="24" height="80"/>
+                    <polygon points="133,60 150,28 167,60"/>
+                </g>
+                <rect x="141" y="75" width="6" height="10" fill="#5ba3d9"/>
+                <rect x="153" y="75" width="6" height="10" fill="#5ba3d9"/>
+                <rect x="144" y="100" width="12" height="18" fill="#5ba3d9" rx="6"/>
+                <path d="M 55 152 Q 85 142 115 152 T 175 152 T 235 152 T 295 152"
+                      stroke="#ffffff" stroke-width="5" fill="none" stroke-linecap="round"/>
+                <path d="M 55 170 Q 85 160 115 170 T 175 170 T 235 170 T 295 170"
+                      stroke="#ffffff" stroke-width="5" fill="none" stroke-linecap="round"/>
+                <path d="M 55 188 Q 85 178 115 188 T 175 188 T 235 188 T 295 188"
+                      stroke="#ffffff" stroke-width="5" fill="none" stroke-linecap="round"/>
+            </svg>
+            <div class="piece" id="fp0">1</div>
+            <div class="piece" id="fp1">2</div>
+            <div class="piece" id="fp2">3</div>
+            <div class="piece" id="fp3">4</div>
+        </div>
+        <button class="btn" id="btn-restart" style="display:none; margin-top:35px;">ИГРАТЬ СНОВА</button>
+    </div>
+
+    <!-- ДИАЛОГ -->
+    <div id="dialogue">
+        <div class="dlg-header">
+            <div class="dlg-avatar" id="dlg-avatar">🧑</div>
+            <div id="dlg-text"></div>
+        </div>
+        <div id="dlg-options"></div>
+        <div id="dlg-input">
+            <input type="text" id="dlg-input-field" placeholder="Введите ответ..." autocomplete="off">
+            <button id="dlg-submit">Ответить</button>
+        </div>
+        <div id="dlg-feedback"></div>
+    </div>
+
+</div>
+
+<div class="signature">by charodeychikmsm &lt;3</div>
+
+<script>
+// ========== СОСТОЯНИЕ ==========
+var state = {
+    solvedRoom: { painting:false, flag:false, book:false, window:false },
+    solvedStreet: { person:false, school:false },
+    geoIdx: 0,
+    histIdx: 0,
+    pieces: 0,
+    currentKey: null,
+    correctIdx: null
+};
+
+// ========== ВОПРОСЫ ==========
+var QUESTIONS = {
+    painting: {
+        text: 'Какие реки сливаются в Лоеве?',
+        options: ['Днепр и Сож', 'Нил и Амазонка', 'Волга и Кама', 'Днестр и Прут'],
+        correct: 0
+    },
+    flag: {
+        text: 'Кто является председателем Лоевского райисполкома?',
+        options: ['Николай Клименок', 'Александр Лукашенко', 'Иван Петров', 'Сергей Сидоренко'],
+        correct: 0
+    },
+    book: {
+        text: 'О чём повествует музей в Лоеве?',
+        options: ['Битва за Днепр', 'История космонавтики', 'Кулинарные традиции', 'Древние ремёсла'],
+        correct: 0
+    },
+    window: {
+        text: 'В какой области находится Лоев?',
+        input: true,
+        correctAnswers: ['гомель', 'гомельская', 'гомельской', 'гомельской области', 'в гомельской области']
+    },
+    person: {
+        text: 'Привет! А какое население у Лоева? Я просто шёл и чёто в голову взбрело)',
+        options: ['6 103 человека', '50 000 человек', '1 200 человек', '100 000 человек'],
+        correct: 0
+    },
+    school: {
+        text: 'В честь какого героя ВОВ названа школа в Лоеве?',
+        options: ['Алексей Васильевич Козлов', 'Иван Степанович Конев',
+                  'Пётр Михайлович Гаврилов', 'Николай Иванович Кузнецов'],
+        correct: 0
+    }
+};
+
+var GEO_QUESTIONS = [
+    { text: 'Какая площадь у Беларуси?',
+      options: ['207 600 км²', '150 000 км²', '300 000 км²', '98 500 км²'], correct: 0 },
+    { text: 'Где географически находится Беларусь?',
+      options: ['В центре Европы', 'На Балканах', 'В Скандинавии', 'На Пиренейском полуострове'], correct: 0 },
+    { text: 'Какое население у Беларуси?',
+      options: ['9,1 млн человек', '5 млн человек', '20 млн человек', '15 млн человек'], correct: 0 }
+];
+
+var WRONG_COUNTRIES_POOL = [
+    'Польша', 'Германия', 'Австрия', 'Швеция', 'Норвегия', 'Дания',
+    'Франция', 'Италия', 'Испания',
+    'Российская Федерация', 'Латвия', 'Литва', 'Украина',
+    'Чехия', 'Венгрия', 'Румыния', 'Финляндия', 'Греция'
+];
+
+var CORRECT_COUNTRIES = ['ВКЛ', 'Речь Посполитая', 'Российская Империя', 'СССР'];
+
+var WWII_YEARS = ['1941', '1945', '1892', '1749', '1939', '1943', '1958', '1991'];
+
+var HIST_QUESTIONS = [
+    {
+        text: 'В состав каких государств входила территория современной Беларуси? Найди и перетащи все 4 правильные страны в поле.',
+        dragMode: 'multi',
+        correctAnswers: CORRECT_COUNTRIES
+    },
+    {
+        text: 'В каких годах происходила ВОВ?',
+        dragMode: 'ordered',
+        dragItems: WWII_YEARS,
+        zones: ['Начало', 'Конец']
+    },
+    {
+        text: 'Какой город в Беларуси назван "Городом Героем"?',
+        options: ['Брест', 'Минск', 'Гомель', 'Витебск'],
+        correct: 0
+    }
+];
+
+// ========== УТИЛИТЫ ==========
+function $(id) { return document.getElementById(id); }
+
+function showScreen(id) {
+    var screens = document.querySelectorAll('.screen');
+    for (var i = 0; i < screens.length; i++) screens[i].classList.remove('active');
+    $(id).classList.add('active');
+}
+
+function shuffle(a) {
+    for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+}
+
+function updatePreview() {
+    var pieces = document.querySelectorAll('#pp .pp-piece');
+    for (var i = 0; i < pieces.length; i++) {
+        if (i < state.pieces) pieces[i].classList.add('on');
+        else pieces[i].classList.remove('on');
+    }
+}
+
+function addPiece() {
+    if (state.pieces < 4) { state.pieces++; updatePreview(); }
+}
+
+// ========== ДИАЛОГ ==========
+function showDialogue(text, optionsHtml, isInput, avatar) {
+    $('dlg-text').textContent = text;
+    $('dlg-options').innerHTML = optionsHtml || '';
+    $('dlg-input').classList.toggle('on', !!isInput);
+    $('dlg-feedback').className = '';
+    $('dlg-feedback').textContent = '';
+    $('dlg-avatar').textContent = avatar || '🧑';
+    $('dialogue').classList.add('active');
+}
+
+function closeDialogue() { $('dialogue').classList.remove('active'); }
+
+function fb(text, ok) {
+    var el = $('dlg-feedback');
+    el.className = ok ? 'fb-ok' : 'fb-no';
+    el.textContent = text;
+}
+
+// ========== ПЛАВНЫЙ ПЕРЕХОД ==========
+function fadeTo(screenId, callback) {
+    document.body.style.transition = 'filter 0.8s';
+    document.body.style.filter = 'brightness(0)';
+    setTimeout(function() {
+        showScreen(screenId);
+        document.body.style.filter = '';
+        if (callback) setTimeout(callback, 200);
+    }, 800);
+}
+
+// ========== МЕНЮ ==========
+$('btn-play').addEventListener('click', function() {
+    state.solvedRoom = { painting:false, flag:false, book:false, window:false };
+    state.solvedStreet = { person:false, school:false };
+    state.geoIdx = 0;
+    state.histIdx = 0;
+
+    ['window','painting','flag','book'].forEach(function(k) {
+        $('obj-' + k).classList.remove('done');
+    });
+    $('obj-door').classList.remove('open');
+    $('street-person').classList.remove('done');
+    $('street-school').classList.remove('done');
+
+    showScreen('room');
+});
+
+$('btn-restart').addEventListener('click', function() {
+    state.pieces = 0;
+    updatePreview();
+    $('final-msg').style.display = 'none';
+    $('final-sub').style.display = 'none';
+    $('btn-restart').style.display = 'none';
+    var pieces = document.querySelectorAll('#final-puzzle .piece');
+    for (var i = 0; i < pieces.length; i++) pieces[i].classList.remove('placed');
+    showScreen('menu');
+});
+
+// ========== КОМНАТА ==========
+function checkRoomDone() {
+    var all = state.solvedRoom.painting && state.solvedRoom.flag &&
+              state.solvedRoom.book && state.solvedRoom.window;
+    if (all) $('obj-door').classList.add('open');
+}
+
+function markRoom(key) {
+    state.solvedRoom[key] = true;
+    $('obj-' + key).classList.add('done');
+    checkRoomDone();
+}
+
+$('obj-window').addEventListener('click', function() { openQuestion('window', '🪟'); });
+$('obj-painting').addEventListener('click', function() { openQuestion('painting', '🖼️'); });
+$('obj-flag').addEventListener('click', function() { openQuestion('flag', '🇧🇾'); });
+$('obj-book').addEventListener('click', function() { openQuestion('book', '📚'); });
+
+$('obj-door').addEventListener('click', function() {
+    if (!$('obj-door').classList.contains('open')) {
+        showDialogue('Дверь заперта. Ответь на все вопросы в комнате.', null, false, '🚪');
+        return;
+    }
+    fadeTo('street');
+});
+
+// ========== УЛИЦА ==========
+$('street-person').addEventListener('click', function() { openQuestion('person', '🧑‍🌾'); });
+$('street-school').addEventListener('click', function() { openQuestion('school', '🏫'); });
+
+function markStreet(key) {
+    state.solvedStreet[key] = true;
+    $('street-' + key).classList.add('done');
+    if (state.solvedStreet.person && state.solvedStreet.school) {
+        setTimeout(function() {
+            showDialogue('Ты заходишь в школу и идёшь в кабинет географии...', null, false, '🏫');
+            setTimeout(function() {
+                fadeTo('geo', initGeo);
+            }, 1400);
+        }, 600);
+    }
+}
+
+// ========== ВОПРОСЫ ==========
+function openQuestion(key, avatar) {
+    var q = QUESTIONS[key];
+    state.currentKey = key;
+
+    if (q.input) {
+        state.correctIdx = null;
+        showDialogue(q.text, null, true, avatar);
+        $('dlg-input-field').value = '';
+        $('dlg-input-field').focus();
+        return;
+    }
+
+    var opts = q.options.slice();
+    var correctText = opts[q.correct];
+    shuffle(opts);
+    state.correctIdx = opts.indexOf(correctText);
+
+    var html = '';
+    for (var i = 0; i < opts.length; i++) {
+        var letter = String.fromCharCode(1072 + i);
+        html += '<button class="opt-btn" data-idx="' + i + '">' + letter + ') ' + opts[i] + '</button>';
+    }
+    showDialogue(q.text, html, false, avatar);
+
+    var btns = $('dlg-options').querySelectorAll('.opt-btn');
+    for (var j = 0; j < btns.length; j++) btns[j].addEventListener('click', onOptionClick);
+}
+
+function onOptionClick(e) {
+    var idx = parseInt(e.currentTarget.getAttribute('data-idx'));
+    var key = state.currentKey;
+    var isCorrect = (idx === state.correctIdx);
+
+    if (key === 'geo') {
+        if (isCorrect) {
+            fb('✅ Правильно!', true);
+            state.geoIdx++;
+            setTimeout(function() { closeDialogue(); initGeo(); }, 800);
+        } else fb('❌ Неправильно. Попробуй ещё.', false);
+        return;
+    }
+    if (key === 'history') {
+        if (isCorrect) {
+            fb('✅ Правильно!', true);
+            state.histIdx++;
+            setTimeout(function() { closeDialogue(); initHistory(); }, 800);
+        } else fb('❌ Неправильно. Попробуй ещё.', false);
+        return;
+    }
+
+    if (isCorrect) {
+        fb('✅ Правильно!', true);
+        setTimeout(function() {
+            closeDialogue();
+            if (state.solvedRoom.hasOwnProperty(key)) markRoom(key);
+            else if (state.solvedStreet.hasOwnProperty(key)) markStreet(key);
+        }, 700);
+    } else fb('❌ Неправильно. Попробуй ещё.', false);
+}
+
+$('dlg-submit').addEventListener('click', function() {
+    var val = $('dlg-input-field').value.trim().toLowerCase();
+    var key = state.currentKey;
+
+    if (key === 'window') {
+        var q = QUESTIONS.window;
+        if (q.correctAnswers.indexOf(val) !== -1) {
+            fb('✅ Правильно!', true);
+            setTimeout(function() { closeDialogue(); markRoom('window'); }, 700);
+        } else fb('❌ Неправильно. Попробуй ещё.', false);
+    }
+});
+
+$('dlg-input-field').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') $('dlg-submit').click();
+});
+
+// ========== ГЕОГРАФИЯ ==========
+function initGeo() {
+    if (state.geoIdx >= GEO_QUESTIONS.length) {
+        showDialogue('Звенит звонок! Перемена...', null, false, '🔔');
+        setTimeout(function() {
+            addPiece();
+            fadeTo('history', initHistory);
+        }, 1500);
+        return;
+    }
+    var q = GEO_QUESTIONS[state.geoIdx];
+    state.currentKey = 'geo';
+    var opts = q.options.slice();
+    var correctText = opts[q.correct];
+    shuffle(opts);
+    state.correctIdx = opts.indexOf(correctText);
+
+    var html = '';
+    for (var i = 0; i < opts.length; i++) {
+        var letter = String.fromCharCode(1072 + i);
+        html += '<button class="opt-btn" data-idx="' + i + '">' + letter + ') ' + opts[i] + '</button>';
+    }
+    showDialogue('Ольга Владимировна: "' + q.text + '"', html, false, '👩‍🏫');
+    var btns = $('dlg-options').querySelectorAll('.opt-btn');
+    for (var j = 0; j < btns.length; j++) btns[j].addEventListener('click', onOptionClick);
+}
+
+// ========== ИСТОРИЯ ==========
+function initHistory() {
+    if (state.histIdx >= HIST_QUESTIONS.length) {
+        addPiece();
+        setTimeout(showFinal, 500);
+        return;
+    }
+    var q = HIST_QUESTIONS[state.histIdx];
+    state.currentKey = 'history';
+
+    if (q.dragMode === 'multi') {
+        state.correctIdx = null;
+        var html = buildMultiDragHtml(q);
+        showDialogue('Елена Васильевна: "' + q.text + '"', html, false, '👩‍🏫');
+        setupMultiDrag();
+        return;
+    }
+
+    if (q.dragMode === 'ordered') {
+        state.correctIdx = null;
+        var shuffledYears = shuffle(q.dragItems.slice());
+        var itemsHtml = '';
+        for (var i = 0; i < shuffledYears.length; i++) {
+            itemsHtml += '<div class="drag-item" draggable="true" data-val="' + shuffledYears[i] + '">' + shuffledYears[i] + '</div>';
+        }
+
+        var html =
+            '<div class="drag-wrap">' +
+                '<div style="text-align:center;">' +
+                    '<div class="drop-zone" id="dz0">' + q.zones[0] + '</div>' +
+                '</div>' +
+                '<div style="text-align:center;">' +
+                    '<div class="drop-zone" id="dz1">' + q.zones[1] + '</div>' +
+                '</div>' +
+            '</div>' +
+            '<div class="drag-label" style="margin-top:15px;">📦 Доступные года (перетащи 2 нужных):</div>' +
+            '<div class="drag-items" id="years-pool">' + itemsHtml + '</div>' +
+            '<div style="text-align:center; margin-top:15px;">' +
+                '<button class="opt-btn" id="btn-check-drag" style="padding:12px 40px;">Проверить</button>' +
+            '</div>';
+        showDialogue('Елена Васильевна: "' + q.text + '"', html, false, '👩‍🏫');
+        setupOrderedDrag();
+        return;
+    }
+
+    var opts = q.options.slice();
+    var correctText = opts[q.correct];
+    shuffle(opts);
+    state.correctIdx = opts.indexOf(correctText);
+
+    var html = '';
+    for (var i = 0; i < opts.length; i++) {
+        var letter = String.fromCharCode(1072 + i);
+        html += '<button class="opt-btn" data-idx="' + i + '">' + letter + ') ' + opts[i] + '</button>';
+    }
+    showDialogue('Елена Васильевна: "' + q.text + '"', html, false, '👩‍🏫');
+    var btns = $('dlg-options').querySelectorAll('.opt-btn');
+    for (var j = 0; j < btns.length; j++) btns[j].addEventListener('click', onOptionClick);
+}
+
+// ========== MULTI DRAG (страны) ==========
+function buildMultiDragHtml(q) {
+    var wrongs = shuffle(WRONG_COUNTRIES_POOL.slice()).slice(0, 4);
+    var allItems = shuffle(q.correctAnswers.concat(wrongs));
+
+    var itemsHtml = '';
+    for (var i = 0; i < allItems.length; i++) {
+        itemsHtml += '<div class="drag-item" draggable="true" data-val="' + allItems[i] + '">' + allItems[i] + '</div>';
+    }
+
+    return (
+        '<div class="drag-area">' +
+            '<div class="drag-label">📥 Перетащи правильные государства в поле ниже:</div>' +
+            '<div class="multi-drop" id="multi-drop">' +
+                '<div class="placeholder" id="multi-placeholder">Сюда нужно перетащить все 4 правильные страны</div>' +
+            '</div>' +
+            '<div class="drag-label">📦 Доступные варианты:</div>' +
+            '<div class="drag-items" id="drag-pool">' + itemsHtml + '</div>' +
+            '<div style="text-align:center; margin-top:20px;">' +
+                '<button class="opt-btn" id="btn-check-multi" style="padding:12px 40px;">Проверить</button>' +
+            '</div>' +
+        '</div>'
+    );
+}
+
+function setupMultiDrag() {
+    var dropZone = $('multi-drop');
+
+    // HTML5 drag&drop на всякий случай
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        this.classList.add('over');
+    });
+    dropZone.addEventListener('dragleave', function(e) {
+        if (e.target === this) this.classList.remove('over');
+    });
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.classList.remove('over');
+        var val = e.dataTransfer.getData('text/plain');
+        if (val) addChip(val);
+    });
+
+    var items = document.querySelectorAll('#drag-pool .drag-item');
+    for (var i = 0; i < items.length; i++) {
+        (function(item) {
+            item.style.cursor = 'pointer';
+
+            // Клик — самый надёжный способ
+            item.addEventListener('click', function() {
+                if (this.classList.contains('taken')) return;
+                addChip(this.dataset.val);
+            });
+
+            // Mouse-drag (работает в любом iframe)
+            item.addEventListener('mousedown', function(e) {
+                if (this.classList.contains('taken')) return;
+                e.preventDefault();
+
+                var self = this;
+                var val = self.dataset.val;
+                var startX = e.clientX;
+                var startY = e.clientY;
+                var dragStarted = false;
+                var ghost = null;
+
+                function onMove(ev) {
+                    var dx = ev.clientX - startX;
+                    var dy = ev.clientY - startY;
+
+                    if (!dragStarted && (Math.abs(dx) > 5 || Math.abs(dy) > 5)) {
+                        dragStarted = true;
+                        ghost = self.cloneNode(true);
+                        ghost.style.cssText =
+                            'position:fixed; pointer-events:none; z-index:99999; ' +
+                            'opacity:0.85; transform:scale(1.05); ' +
+                            'left:' + (ev.clientX - 40) + 'px; ' +
+                            'top:' + (ev.clientY - 20) + 'px; ' +
+                            'background:#e94560; border-color:#ff8a5c;';
+                        document.body.appendChild(ghost);
+                        self.style.opacity = '0.3';
+                    }
+
+                    if (dragStarted && ghost) {
+                        ghost.style.left = (ev.clientX - 40) + 'px';
+                        ghost.style.top = (ev.clientY - 20) + 'px';
+                    }
+                }
+
+                function onUp(ev) {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    if (ghost) ghost.remove();
+                    self.style.opacity = '';
+
+                    if (dragStarted) {
+                        var rect = dropZone.getBoundingClientRect();
+                        if (ev.clientX >= rect.left && ev.clientX <= rect.right &&
+                            ev.clientY >= rect.top && ev.clientY <= rect.bottom) {
+                            addChip(val);
+                        }
+                    }
+                }
+
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+        })(items[i]);
+    }
+
+    $('btn-check-multi').addEventListener('click', checkMultiDrop);
+}
+
+function addChip(val) {
+    var items = document.querySelectorAll('#drag-pool .drag-item');
+    var found = false;
+    for (var i = 0; i < items.length; i++) {
+        if (items[i].dataset.val === val && !items[i].classList.contains('taken')) {
+            items[i].classList.add('taken');
+            found = true;
+            break;
+        }
+    }
+    if (!found) return;
+
+    var placeholder = $('multi-placeholder');
+    if (placeholder) placeholder.style.display = 'none';
+
+    var chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.dataset.val = val;
+    chip.textContent = val;
+
+    chip.addEventListener('click', function() {
+        var v = this.dataset.val;
+        this.remove();
+        var allItems = document.querySelectorAll('#drag-pool .drag-item');
+        for (var i = 0; i < allItems.length; i++) {
+            if (allItems[i].dataset.val === v) {
+                allItems[i].classList.remove('taken');
+            }
+        }
+        var remaining = document.querySelectorAll('#multi-drop .chip');
+        if (remaining.length === 0 && placeholder) {
+            placeholder.style.display = 'flex';
+        }
+        updateMultiDropHint();
+    });
+
+    $('multi-drop').appendChild(chip);
+    updateMultiDropHint();
+}
+
+function updateMultiDropHint() {
+    var chips = document.querySelectorAll('#multi-drop .chip');
+    var hint = document.getElementById('multi-hint');
+    if (!hint) {
+        hint = document.createElement('div');
+        hint.id = 'multi-hint';
+        hint.style.cssText = 'color:#a8a8b3; font-size:13px; text-align:center; margin-top:8px;';
+        $('multi-drop').parentNode.appendChild(hint);
+    }
+    var n = chips.length;
+    if (n === 0) hint.textContent = '';
+    else if (n < 4) hint.textContent = 'Выбрано: ' + n + ' / 4';
+    else if (n === 4) hint.textContent = 'Выбрано: 4 / 4 — можно проверять!';
+    else hint.textContent = '⚠ Выбрано слишком много: ' + n + ' / 4';
+}
+
+function checkMultiDrop() {
+    var chips = document.querySelectorAll('#multi-drop .chip');
+    var values = [];
+    for (var i = 0; i < chips.length; i++) values.push(chips[i].dataset.val);
+
+    var correct = CORRECT_COUNTRIES;
+
+    if (values.length !== 4) {
+        fb('❌ Нужно выбрать все 4 правильные страны. Сейчас: ' + values.length, false);
+        return;
+    }
+
+    var allInCorrect = values.every(function(v) { return correct.indexOf(v) !== -1; });
+    var allFound = correct.every(function(c) { return values.indexOf(c) !== -1; });
+
+    if (allInCorrect && allFound) {
+        fb('✅ Правильно! ВКЛ, Речь Посполитая, Российская Империя и СССР.', true);
+        state.histIdx++;
+        setTimeout(function() { closeDialogue(); initHistory(); }, 1000);
+    } else {
+        fb('❌ Неправильно. Подумай ещё, какие государства тут были.', false);
+    }
+}
+
+// ========== ORDERED DRAG (года) ==========
+function setupOrderedDrag() {
+    var items = document.querySelectorAll('.drag-item');
+    var zones = document.querySelectorAll('.drop-zone');
+
+    for (var i = 0; i < items.length; i++) {
+        items[i].addEventListener('dragstart', function(e) {
+            e.dataTransfer.setData('text/plain', this.getAttribute('data-val'));
+            e.dataTransfer.effectAllowed = 'move';
+        });
+    }
+    for (var j = 0; j < zones.length; j++) {
+        zones[j].addEventListener('dragover', function(e) {
+            e.preventDefault();
+            this.classList.add('over');
+        });
+        zones[j].addEventListener('dragleave', function() {
+            this.classList.remove('over');
+        });
+        zones[j].addEventListener('drop', function(e) {
+            e.preventDefault();
+            this.classList.remove('over');
+            var val = e.dataTransfer.getData('text/plain');
+            this.textContent = val;
+            this.setAttribute('data-val', val);
+            this.classList.add('filled');
+            var allItems = document.querySelectorAll('.drag-item');
+            for (var k = 0; k < allItems.length; k++) {
+                if (allItems[k].getAttribute('data-val') === val) {
+                    allItems[k].style.opacity = '0.3';
+                    allItems[k].setAttribute('draggable', 'false');
+                }
+            }
+        });
+    }
+
+    $('btn-check-drag').addEventListener('click', function() {
+        var z0 = $('dz0').getAttribute('data-val');
+        var z1 = $('dz1').getAttribute('data-val');
+        if (z0 === '1941' && z1 === '1945') {
+            fb('✅ Правильно! ВОВ: 1941–1945.', true);
+            state.histIdx++;
+            setTimeout(function() { closeDialogue(); initHistory(); }, 800);
+        } else {
+            fb('❌ Неправильно. Подумай, когда началась и когда закончилась ВОВ.', false);
+        }
+    });
+}
+
+// ========== ФИНАЛ ==========
+function showFinal() {
+    showScreen('final');
+    $('final-msg').style.display = 'block';
+    $('final-sub').style.display = 'block';
+
+    var ids = ['fp0', 'fp1', 'fp2', 'fp3'];
+    ids.forEach(function(id, i) {
+        setTimeout(function() {
+            $(id).classList.add('placed');
+        }, i * 500);
+    });
+
+    setTimeout(function() {
+        $('btn-restart').style.display = 'inline-block';
+    }, 2500);
+}
+
+// Первичная отрисовка
+updatePreview();
+</script>
+</body>
+</html>
